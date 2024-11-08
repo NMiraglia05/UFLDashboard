@@ -1,0 +1,145 @@
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
+
+service = Service(ChromeDriverManager().install())
+options = webdriver.ChromeOptions()
+options.add_argument('--headless')  
+driver = webdriver.Chrome(service=service, options=options)
+
+driver.get('https://www.theufl.com/stats/player')
+html = driver.page_source
+driver.execute_script("document.body.style.zoom='50%'")
+
+receiving_tab = WebDriverWait(driver, 60).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, 'li[data-id=".receivingstats"]'))
+)
+rushing_tab = WebDriverWait(driver, 100).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, 'li[data-id=".rushingstats"]'))
+)
+close_button = WebDriverWait(driver, 60).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.onetrust-close-btn-handler"))
+)
+
+close_button.click()
+
+passing_stats = []
+rushing_stats = []
+receiving_stats = []
+kicking_stats = []
+
+for i in range(3):
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    table = soup.find('table', id='DataTables_Table_0')
+    rows = table.find('tbody').find_all('tr')
+    for row in rows:
+        cols = row.find_all('td')
+        player_data = {
+            'Name': cols[1].text.strip(),
+            'Team': cols[2].text.strip(),
+            'Games Played': int(cols[3].text.strip()),
+            'Attempts': int(cols[4].text.strip()),
+            'Completions': int(cols[5].text.strip()),
+            'Yards': int(cols[7].text.strip()),
+            'Touchdowns': int(cols[10].text.strip()),
+            'Interceptions': int(cols[12].text.strip()),
+            'Sacked': int(cols[13].text.strip()),
+        }
+        passing_stats.append(player_data)
+    next_button = WebDriverWait(driver, 10).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.dt-paging-button.next[aria-controls="DataTables_Table_0"]'))
+)
+    next_button.click()      
+df1 = pd.DataFrame(passing_stats)
+df1["Avg/Completion"]= df1["Yards"]/df1["Completions"]
+df1["Completion Rate"]= df1["Completions"]/df1["Attempts"]
+
+rushing_tab.click()
+for i in range(8):
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    table = soup.find('table', id='DataTables_Table_1')
+    rows = table.find('tbody').find_all('tr')
+    for row in rows:
+        cols = row.find_all('td')
+        player_data = {
+            'Name': cols[1].text.strip(),
+            'Team': cols[2].text.strip(),
+            'Games Played': int(cols[3].text.strip()),
+            'Attempts': int(cols[4].text.strip()),
+            'Yards': int(cols[5].text.strip()),
+            'Touchdowns': int(cols[7].text.strip()),
+        }
+        rushing_stats.append(player_data) 
+    next_button = WebDriverWait(driver, 10).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.dt-paging-button.next[aria-controls="DataTables_Table_1"]'))
+)
+    next_button.click()
+df2["Avg/Attempt"]=df2["Yards"]/df2["Attempts"] 
+df2 = pd.DataFrame(rushing_stats)
+
+receiving_tab.click()
+for i in range(11):
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    table = soup.find('table', id='DataTables_Table_2')
+    rows = table.find('tbody').find_all('tr')
+    for row in rows:
+        cols = row.find_all('td')
+        player_data = {
+            'Name': cols[1].text.strip(),
+            'Team': cols[2].text.strip(),
+            'Games Played': int(cols[3].text.strip()),
+            'Targets': int(cols[8].text.strip()),
+            'Catches': int(cols[4].text.strip()),
+            'Yards': int(cols[5].text.strip()),
+            'Touchdowns': int(cols[7].text.strip()),
+        }
+        receiving_stats.append(player_data)
+    next_button = WebDriverWait(driver, 10).until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.dt-paging-button.next[aria-controls="DataTables_Table_2"]'))
+)
+    next_button.click()
+df3 = pd.DataFrame(receiving_stats)
+df3["Avg per Catch"]= df3["Yards"]/df3["Catches"] 
+df3["Catch Rate"]= df3["Catches"]/df3["Targets"]
+
+table = soup.find('table', id='DataTables_Table_4')
+rows = table.find('tbody').find_all('tr')
+
+for row in rows:
+    cols = row.find_all('td')
+    player_data = {
+        'Name': cols[1].text.strip(),
+        'Team': cols[2].text.strip(),
+        'Games Played': int(cols[3].text.strip()),
+        'Attempts': int(cols[5].text.strip()),
+        'FGM': int(cols[4].text.strip()),
+        'FGA': int(cols[5].text.strip()),
+        'Longest': int(cols[7].text.strip()),
+    }
+    kicking_stats.append(player_data) 
+
+df4 = pd.DataFrame(kicking_stats)
+
+
+with pd.ExcelWriter("UFLStats2024.xlsx") as writer:
+    if df1 is not None:
+        df1.to_excel(writer, sheet_name="Passing", index=False)
+    if df2 is not None:
+        df2.to_excel(writer, sheet_name="Rushing", index=False)
+    if df3 is not None:
+        df3.to_excel(writer, sheet_name="Receiving", index=False)
+    if df4 is not None:
+        df4.to_excel(writer,sheet_name="Kicking",index=False)
+    print("All worksheets correctly created. Babagaboosh!")
+
+driver.quit()
+
+print("Scree")
