@@ -1,5 +1,5 @@
 # UFLDashboard
-This project involved creating a dashboard to track the performance of UFL players.. 
+This project involved creating a dashboard to track the performance of UFL players.
 
 It is split into two sections- the dashboard and the scraper.
 
